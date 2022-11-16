@@ -1,0 +1,15 @@
+{
+  "name": "prismo-smartpro/jwt",
+  "description": "Smart Technology JWT",
+  "minimum-stability": "stable",
+  "license": "GPL-3.0-or-later",
+  "require": {
+    "php": ">=7.4",
+    "ext-json": "*"
+  },
+  "autoload": {
+    "psr-4": {
+      "SmartPRO\\Technology\\": "src/"
+    }
+  }
+}
