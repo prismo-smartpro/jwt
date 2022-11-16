@@ -1,4 +1,7 @@
 # INSTALAÇÃO
+```bash
+composer require prismo-smartpro/jwt
+```
 
 # COMO USAR
 
