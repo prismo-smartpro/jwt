@@ -6,27 +6,22 @@ use Exception;
 
 class JWT
 {
-    protected string $passwd;
-    protected array $payload;
-    protected int $exp;
-    protected array $headers = [
-        "alg" => "HS256",
-        "typ" => "JWT"
-    ];
+    protected ?string $password;
 
-    public function __construct($passwd, $exp = 3600)
+    public function create(array $payload = array(), $exp = (3600 * 24)): string
     {
-        $this->exp = $exp;
-        $this->passwd = $passwd;
-    }
-    
-    public function payload(array $payload): JWT
-    {
-        $payload['jti'] = $this->created_jti();
-        $payload['iat'] = time();
-        $payload['exp'] = time() + $this->exp;
-        $this->payload = $payload;
-        return $this;
+        $payload["iss"] = $_SERVER["SERVER_NAME"];
+        $payload["sub"] = "JWT Authentication Token";
+        $payload["exp"] = time() + $exp;
+        $payload["iat"] = time();
+        $payload["jti"] = $this->uuid();
+        $headers = $this->base64UrlEncode(json_encode([
+            'alg' => 'HS256',
+            'typ' => 'JWT'
+        ]));
+        $payload = $this->base64UrlEncode(json_encode($payload));
+        $signature = $this->base64UrlEncode($this->hash("{$headers}.{$payload}"));
+        return "{$headers}.{$payload}.{$signature}";
     }
 
     /**
@@ -34,58 +29,65 @@ class JWT
      */
     public function verify($token)
     {
-        $explode = explode(".", $token);
-        if (count($explode) != 3) {
-            throw new Exception("O token informado esta incompleto");
+        $token = explode(".", $token);
+        if (count($token) !== 3) {
+            throw new Exception("O token informado está incompleto!");
         }
 
-        $headers = $explode[0];
-        $payload = $explode[1];
-        $signature = $explode[2];
+        $headers = $token[0];
+        $payload = $token[1];
+        $signature = $token[2];
 
-        $verifySignature = $this->encrypt($headers . $payload);
-        if ($signature != $verifySignature) {
-            throw new Exception("A assinatura do token esta incorreta");
+        if ($this->base64UrlEncode($this->hash("{$headers}.{$payload}")) != $signature) {
+            throw new Exception("A senha do token está incorreta!");
         }
 
-        $payload = json_decode(base64_decode($payload));
-        if ($payload->exp < time()) {
-            throw new Exception("O token é valido, porém já venceu");
+        $payload = json_decode($this->base64UrlDecode($payload));
+
+        if (empty($payload)) {
+            throw new Exception("Erro ao decodificar o token");
         }
-        var_dump($this);
+
+        if ($payload->exp <= time()) {
+            throw new Exception("O token não pode mais ser usado, ele já expirou!");
+        }
+
         return $payload;
     }
 
-    public function encrypt($data): string
+    private function uuid(): string
     {
-        return base64_encode(hash_hmac("SHA256", $data, $this->passwd));
-    }
-
-    public function created(): string
-    {
-        $headers = base64_encode(json_encode($this->headers));
-        $payload = base64_encode(json_encode($this->payload));
-        $signature = $this->encrypt($headers . $payload);
-        return "{$headers}.{$payload}.{$signature}";
-    }
-
-    /**
-     * @throws Exception
-     */
-    private function created_jti()
-    {
-        $data = random_bytes(16);
-        assert(strlen($data) == 16);
+        if (function_exists('openssl_random_pseudo_bytes')) {
+            $data = openssl_random_pseudo_bytes(16);
+        } else {
+            $data = uniqid('', true);
+        }
         $data[6] = chr(ord($data[6]) & 0x0f | 0x40);
         $data[8] = chr(ord($data[8]) & 0x3f | 0x80);
         return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
     }
 
-    /**
-     * @param int $exp
-     */
-    public function setExp(int $exp): void
+    private function base64UrlEncode($input): string
     {
-        $this->exp = $exp;
+        $base64 = base64_encode($input);
+        $urlSafe = strtr($base64, '+/', '-_');
+        return rtrim($urlSafe, '=');
+    }
+
+    private function base64UrlDecode($input)
+    {
+        $urlSafe = strtr($input, '-_', '+/');
+        $base64 = str_pad($urlSafe, strlen($urlSafe) % 4, '=', STR_PAD_RIGHT);
+        return base64_decode($base64);
+    }
+
+    private function hash($text): string
+    {
+        return hash_hmac("sha256", $text, $this->password);
+    }
+
+    public function setPassword(string $password): void
+    {
+        $this->password = $password;
     }
 }
