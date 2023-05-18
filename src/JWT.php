@@ -6,7 +6,7 @@ use Exception;
 
 class JWT
 {
-    protected ?string $password;
+    protected ?string $password = null;
 
     public function create(array $payload = array(), $exp = (3600 * 24)): string
     {
