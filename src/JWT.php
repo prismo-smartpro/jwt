@@ -31,7 +31,7 @@ class JWT
     {
         $token = explode(".", $token);
         if (count($token) !== 3) {
-            throw new Exception("O token informado está incompleto!");
+            throw new Exception("O token informado está incompleto!", 400);
         }
 
         $headers = $token[0];
@@ -39,17 +39,17 @@ class JWT
         $signature = $token[2];
 
         if ($this->base64UrlEncode($this->hash("{$headers}.{$payload}")) != $signature) {
-            throw new Exception("A senha do token está incorreta!");
+            throw new Exception("A senha do token está incorreta!", 401);
         }
 
         $payload = json_decode($this->base64UrlDecode($payload));
 
         if (empty($payload)) {
-            throw new Exception("Erro ao decodificar o token");
+            throw new Exception("Erro ao decodificar o token", 401);
         }
 
         if ($payload->exp <= time()) {
-            throw new Exception("O token não pode mais ser usado, ele já expirou!");
+            throw new Exception("O token não pode mais ser usado, ele já expirou!", 401);
         }
 
         return $payload;
